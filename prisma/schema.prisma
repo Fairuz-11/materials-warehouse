@@ -1,0 +1,104 @@
+// Prisma schema for Material Warehouse Management System
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Kategori Material ────────────────────────────────────────────────────────
+model Kategori {
+  id        String     @id @default(cuid())
+  nama      String     @unique
+  deskripsi String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  material  Material[]
+
+  @@map("kategori")
+}
+
+// ─── Satuan Material ──────────────────────────────────────────────────────────
+model Satuan {
+  id        String     @id @default(cuid())
+  nama      String     @unique // e.g. "sak", "m3", "batang", "lembar"
+  singkatan String     @unique // e.g. "sk", "m³", "btg", "lbr"
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  material  Material[]
+
+  @@map("satuan")
+}
+
+// ─── Supplier ─────────────────────────────────────────────────────────────────
+model Supplier {
+  id        String      @id @default(cuid())
+  kode      String      @unique
+  nama      String
+  kontak    String?
+  telepon   String?
+  alamat    String?
+  email     String?
+  aktif     Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  transaksi Transaksi[]
+
+  @@map("supplier")
+}
+
+// ─── Material ─────────────────────────────────────────────────────────────────
+model Material {
+  id           String      @id @default(cuid())
+  kode         String      @unique
+  nama         String
+  deskripsi    String?
+  kategoriId   String
+  kategori     Kategori    @relation(fields: [kategoriId], references: [id])
+  satuanId     String
+  satuan       Satuan      @relation(fields: [satuanId], references: [id])
+  stokSaatIni  Decimal     @default(0) @db.Decimal(12, 2)
+  stokMinimum  Decimal     @default(0) @db.Decimal(12, 2)
+  hargaSatuan  Decimal?    @db.Decimal(15, 2)
+  lokasi       String?     // Lokasi di gudang, e.g. "Rak A-1"
+  aktif        Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  transaksi    Transaksi[]
+
+  @@map("material")
+}
+
+// ─── Transaksi ────────────────────────────────────────────────────────────────
+// Menangani barang masuk dan barang keluar dalam satu tabel
+model Transaksi {
+  id          String         @id @default(cuid())
+  nomorRef    String         @unique // Nomor referensi / nomor dokumen
+  jenis       JenisTransaksi
+  materialId  String
+  material    Material       @relation(fields: [materialId], references: [id])
+  supplierId  String?        // Hanya untuk barang masuk
+  supplier    Supplier?      @relation(fields: [supplierId], references: [id])
+  jumlah      Decimal        @db.Decimal(12, 2)
+  hargaSatuan Decimal?       @db.Decimal(15, 2)
+  totalHarga  Decimal?       @db.Decimal(15, 2)
+  keterangan  String?
+  tanggal     DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([materialId])
+  @@index([jenis])
+  @@index([tanggal])
+  @@map("transaksi")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+enum JenisTransaksi {
+  MASUK  // Barang masuk (penerimaan dari supplier)
+  KELUAR // Barang keluar (penggunaan / pengeluaran)
+}
